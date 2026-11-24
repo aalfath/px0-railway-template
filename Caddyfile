@@ -1,0 +1,43 @@
+{
+	admin off
+	auto_https off
+	persist_config off
+	servers {
+		# Railway's edge reaches the service from these ranges.
+		trusted_proxies static 100.64.0.0/10 152.233.0.0/16
+	}
+	log {
+		output stdout
+		level WARN
+	}
+}
+
+:{$PORT} {
+	# Unauthenticated health check for Railway: px0's own ping endpoint.
+	handle /healthz {
+		rewrite * /api/wb/ping
+		reverse_proxy 127.0.0.1:{$PX0_INTERNAL_PORT} {
+			header_up Host 127.0.0.1:{$PX0_INTERNAL_PORT}
+		}
+	}
+
+	handle {
+		basic_auth {
+			{$PX0_USERNAME} {$PX0_PASSWORD_HASH}
+		}
+
+		# px0 accepts a POST only when Origin's host equals the Host header, and
+		# only for an IP or localhost Host (DNS-rebinding guard). Behind Railway's
+		# public domain we send px0 a loopback Host, and rewrite Origin only when
+		# the browser says the request came from this same public site. A POST
+		# from any other site keeps its Origin and px0 still refuses it.
+		@sameorigin expression `{http.request.header.Origin} == "https://" + {http.request.host} || {http.request.header.Origin} == "http://" + {http.request.hostport}`
+		request_header @sameorigin Origin http://127.0.0.1:{$PX0_INTERNAL_PORT}
+
+		reverse_proxy 127.0.0.1:{$PX0_INTERNAL_PORT} {
+			header_up Host 127.0.0.1:{$PX0_INTERNAL_PORT}
+			# Server-Sent Events (live git status, agent threads) must not buffer.
+			flush_interval -1
+		}
+	}
+}

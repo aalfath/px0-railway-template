@@ -1,0 +1,11 @@
+# Keep git inside a 0.5 GB Railway service (Free plan).
+[pack]
+	threads = 1
+	windowMemory = 64m
+	deltaCacheSize = 32m
+[core]
+	packedGitLimit = 64m
+	packedGitWindowSize = 16m
+	bigFileThreshold = 16m
+[safe]
+	directory = *
