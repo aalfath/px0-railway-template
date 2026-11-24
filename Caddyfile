@@ -29,10 +29,13 @@
 		# px0 accepts a POST only when Origin's host equals the Host header, and
 		# only for an IP or localhost Host (DNS-rebinding guard). Behind Railway's
 		# public domain we send px0 a loopback Host, and rewrite Origin only when
-		# the browser says the request came from this same public site. A POST
-		# from any other site keeps its Origin and px0 still refuses it.
+		# the browser says the request came from this same public site.
 		@sameorigin expression `{http.request.header.Origin} == "https://" + {http.request.host} || {http.request.header.Origin} == "http://" + {http.request.hostport}`
+		@crossorigin not expression `{http.request.header.Origin} == "https://" + {http.request.host} || {http.request.header.Origin} == "http://" + {http.request.hostport}`
 		request_header @sameorigin Origin http://127.0.0.1:{$PX0_INTERNAL_PORT}
+		# Any other Origin (including a forged loopback one) is removed, so px0
+		# refuses the request.
+		request_header @crossorigin -Origin
 
 		reverse_proxy 127.0.0.1:{$PX0_INTERNAL_PORT} {
 			header_up Host 127.0.0.1:{$PX0_INTERNAL_PORT}
