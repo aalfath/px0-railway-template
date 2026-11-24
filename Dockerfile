@@ -3,11 +3,10 @@
 # Upstream publishes no container image, so we build the v0.1.21 tag here.
 
 # ---- source: px0 v0.1.21, pinned by commit -------------------------------
-FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS src
+FROM golang:1.25.14-trixie@sha256:2c4c60ef415fbfa5e90300722293bef36c5e63fae17570ce18f580af933dbd73 AS src
 ARG PX0_VERSION=0.1.21
 ARG PX0_COMMIT=f5c7e6709035ef5def148ab7c8b5f7db8646b94d
-RUN apk add --no-cache git \
- && git init -q /src && cd /src \
+RUN git init -q /src && cd /src \
  && git fetch -q --depth 1 https://github.com/px0-ai/px0 "${PX0_COMMIT}" \
  && git checkout -q FETCH_HEAD \
  && test "$(git rev-parse HEAD)" = "${PX0_COMMIT}" \
@@ -33,8 +32,10 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/px0 . \
  && /out/px0 -version
 
 # ---- runtime -------------------------------------------------------------
-FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
-RUN apk add --no-cache ca-certificates git openssh-client \
+FROM debian:trixie-20261123-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates git openssh-client tini \
+ && rm -r /var/lib/apt/lists/* \
  && mkdir -p /data
 COPY --from=caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0 /usr/bin/caddy /usr/local/bin/caddy
 COPY --from=build /out/px0 /usr/local/bin/px0
@@ -48,4 +49,5 @@ ENV HOME=/data \
     PX0_TELEMETRY=off
 WORKDIR /data
 EXPOSE 8080
+ENTRYPOINT ["/usr/bin/tini", "-g", "--"]
 CMD ["/usr/local/bin/start.sh"]
