@@ -32,10 +32,10 @@
 		# the browser says the request came from this same public site.
 		@sameorigin expression `{http.request.header.Origin} == "https://" + {http.request.host} || {http.request.header.Origin} == "http://" + {http.request.hostport}`
 		@crossorigin not expression `{http.request.header.Origin} == "https://" + {http.request.host} || {http.request.header.Origin} == "http://" + {http.request.hostport}`
-		request_header @sameorigin Origin http://127.0.0.1:{$PX0_INTERNAL_PORT}
-		# Any other Origin (including a forged loopback one) is removed, so px0
-		# refuses the request.
+		# Any other Origin (including a forged loopback one) is removed first, so
+		# px0 refuses the request; then a same-site Origin is mapped to loopback.
 		request_header @crossorigin -Origin
+		request_header @sameorigin Origin http://127.0.0.1:{$PX0_INTERNAL_PORT}
 
 		reverse_proxy 127.0.0.1:{$PX0_INTERNAL_PORT} {
 			header_up Host 127.0.0.1:{$PX0_INTERNAL_PORT}
